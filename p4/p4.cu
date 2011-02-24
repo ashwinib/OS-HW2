@@ -64,22 +64,24 @@ __global__ void checkMatchOnDevice(char *fileBuffer, char* searchString, int* ma
 }
 __global__ void cumulateOnDevice(int* matchArray, int noOfThreads, int* outArray)
 {
-  extern __shared__ int sdata[];
+  extern __shared__ int sdata2[];
   unsigned int tid = threadIdx.x;
   unsigned int i = blockIdx.x * blockDim.x + threadIdx.x;
-  unsigned int lim = (noOfThreads > blockDim.x) ? blockDim.x:noOfThreads;
+  unsigned int lim;// = (noOfThreads > blockDim.x) ? blockDim.x:noOfThreads;
   if(i<noOfThreads){
-	sdata[tid] = matchArray[i];
+	sdata2[tid] = matchArray[i];
 	__syncthreads();
 
 	for(unsigned int s=1;s<blockDim.x;s*=2){
 	  int index = s*2*tid;
-	  if((index+s) < lim){
-	    sdata[index] += sdata[index+s];
+	
+	//__syncthreads();
+	  if((index+s) < noOfThreads){
+	    sdata2[index] += sdata2[index+s];
 	  }
-	  __syncthreads();
+	 __syncthreads();
 	}
-	if(tid == 0) outArray[blockIdx.x] = sdata[0];
+	if(tid == 0) matchArray[blockIdx.x] = sdata2[0];
   }
 }
 int main(int argc, char *argv[])
@@ -112,7 +114,6 @@ int main(int argc, char *argv[])
     int *matchArray;
     int *outArray;
     int *hostMatchArray;
-    int *hostOutArray;
     int *hostMatchStartArray;
     int *hostMatchEndArray;
     int *matchStartArray;
@@ -141,7 +142,6 @@ int main(int argc, char *argv[])
     cudaMalloc((void **) &matchArray, sizeof(int)*numThreads);
     cudaMalloc((void **) &outArray, sizeof(int)*numThreads);
     hostMatchArray = (int*)malloc(sizeof(int)*numThreads);
-    hostOutArray = (int*)malloc(sizeof(int)*numThreads);
     cudaMalloc((void **) &matchStartArray, sizeof(int)*numThreads);
     hostMatchStartArray = (int*)malloc(sizeof(int)*numThreads);
     cudaMalloc((void **) &matchEndArray, sizeof(int)*numThreads);
@@ -151,12 +151,10 @@ int main(int argc, char *argv[])
     for(i = 0; i < numThreads; i++)
     {
       hostMatchArray[i] = 0; 
-      hostOutArray[i] = 0; 
       hostMatchStartArray[i] = -1; 
       hostMatchEndArray[i] = -1; 
     }
     cudaMemcpy(matchArray, hostMatchArray, numThreads, cudaMemcpyHostToDevice);
-    cudaMemcpy(outArray, hostOutArray, numThreads, cudaMemcpyHostToDevice);
     cudaMemcpy(matchStartArray, hostMatchStartArray, numThreads, cudaMemcpyHostToDevice);
     cudaMemcpy(matchEndArray, hostMatchEndArray, numThreads, cudaMemcpyHostToDevice);
     //printf("Number of threads:%d, Number of blocks:%d, Num Threads Per Block:%d, Num Bytes Per Thread:%d\n",numThreads,nBlocks,threadsPerBlock,numBytesPerThread);
@@ -164,7 +162,8 @@ int main(int argc, char *argv[])
     cudaEventRecord( start, 0 );
     checkMatchOnDevice <<< nBlocks, threadsPerBlock >>> (deviceFileBuffer, deviceSearchBuffer, matchArray,numBytesPerThread,searchSize,matchStartArray,matchEndArray);
     int newNBlocks = (nBlocks/threadsPerBlock)+1;printf("\nNew Blocks:%d",nBlocks);
-    //cumulateOnDevice <<< newNBlocks, threadsPerBlock >>> (matchArray,nBlocks,outArray);
+    cudaThreadSynchronize();
+    cumulateOnDevice <<< newNBlocks, threadsPerBlock ,threadsPerBlock * sizeof(int)>>> (matchArray,nBlocks,outArray);
     //cudaMemcpy(matchArray, outArray, sizeof(int)*numThreads, cudaMemcpyDeviceToDevice);
     cudaEventRecord( stop, 0 ); 
     cudaEventSynchronize( stop ); 
@@ -182,6 +181,7 @@ int main(int argc, char *argv[])
 	total += hostMatchArray[i];
         printf("%d)%d\n",i,hostMatchArray[i]);
     }
+	total = hostMatchArray [0];
     //Overlap check, commented out for hw2  
 /*  for(i = 0; i < numThreads; i++)
     {
