@@ -76,7 +76,7 @@ int isStillSafeToBoard(void *arg){
 		//myprintf("AllwdHack = %d",allowableHackers);myprintf("\tAllwdSerfs = %d\n",allowableSerfs);
 
 	if(allowableHackers == -1&& allowableSerfs ==-1 ){//not scheduled so schedule;
-		pintf("\n------------------------\n");
+		//pintf("\n------------------------\n");
 		if(safe >= 4){	
 			//pintf("\nSetting hackers to4 \n");
 			allowableHackers = 4;
@@ -259,13 +259,11 @@ int main(int argc, char** argv)
 	int numOfHacker, numOfSerf;
 
 	while(1) {
-		pintf("\nEnter no of hackers\n");
 		scanf("%d%d", &numOfHacker, &numOfSerf);
 
 		if ( numOfHacker == 0 && numOfSerf == 0 )
 			break;
 
-		pintf("\nEnter hackers\n");
 		for ( i=0 ; i<(numOfHacker+numOfSerf) ; i++ )
 			scanf("%d", &(th_arg[i]));
 
@@ -280,6 +278,8 @@ int main(int argc, char** argv)
 
 		for ( i=0 ; i<(numOfHacker+numOfSerf) ; i++ )
 			pthread_join(th[i], NULL);
+		
+		pintf("\n------------------------\n");
 	}
 
 	return 0;

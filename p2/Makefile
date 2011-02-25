@@ -1,4 +1,4 @@
-all: p23
+all: p2
 
-p23: p23.c board.c
+p2: p2.c board.c
 	$(CC) -o $@ $^ -lpthread -lrt
