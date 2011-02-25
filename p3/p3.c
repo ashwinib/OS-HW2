@@ -9,8 +9,6 @@
 static pthread_barrier_t level_barr;
 static pthread_barrier_t main_barr;
 int noOfThreads;
-//static pthread_mutex_t mutx = PTHREAD_MUTEX_INITIALIZER;
-//static pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 int sharedData[500];
 
 struct th_arg_s
@@ -70,10 +68,10 @@ unsigned int s;
    		     	}
 
    		 }
-//	if(th_arg->thread_id == 0)
- //  		 {
-//   		    		 printf("Final Data = %d",sharedData[0]);
- //  		 }
+	if(th_arg->thread_id == 0)
+   		 {
+   		    		 printf("Final Data = %d",sharedData[0]);
+   		 }
 	//pthread_barrier_wait(&main_barr);
 }
 
@@ -110,7 +108,7 @@ int main(int argc, char** argv)
 
 		pthread_barrier_init(&level_barr,NULL,thread_num);
 		//pthread_barrier_init(&main_barr,NULL,(thread_num+1));
-	//	myprintf("\nCreating Threads %d",thread_num);
+		myprintf("\nCreating Threads %d",thread_num);
 		for ( i=0 ; i<thread_num ; i++ ) {
 			th_arg[i].buf = buf;
 			th_arg[i].str = argv[1];
@@ -124,18 +122,18 @@ int main(int argc, char** argv)
 
 			pthread_create(&(th[i]), NULL, string_match, &(th_arg[i]));
 		}
-	//	myprintf("\njoining",0);
+		myprintf("\njoining",0);
 		for ( sum=0, i=0 ; i<thread_num ; i++ ) {
 			pthread_join(th[i], NULL);
-			/*if ( i>0 && th_arg[i].count > 0 && th_arg[i-1].last >= th_arg[i].first ) {
+			if ( i>0 && th_arg[i].count > 0 && th_arg[i-1].last >= th_arg[i].first ) {
 				th_arg[i].start = th_arg[i-1].last + 1;
 				th_arg[i].count = 0;
 
 				__string_match((void*)(&(th_arg[i])));
-			}*/
+			}
 			//sum += th_arg[i].count;
 		}
-		//myprintf("Main going in wait%d",thread_num+1);
+		myprintf("Main going in wait%d",thread_num+1);
 		//pthread_barrier_wait(&main_barr);
 		sum= sharedData[0];
 		gettimeofday(&q, NULL);
