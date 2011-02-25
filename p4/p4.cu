@@ -67,19 +67,18 @@ __global__ void cumulateOnDevice(int* matchArray, int noOfThreads, int* outArray
   extern __shared__ int sdata2[];
   unsigned int tid = threadIdx.x;
   unsigned int i = blockIdx.x * blockDim.x + threadIdx.x;
-  unsigned int lim;// = (noOfThreads > blockDim.x) ? blockDim.x:noOfThreads;
   if(i<noOfThreads){
 	sdata2[tid] = matchArray[i];
-	__syncthreads();
+	//__syncthreads();
 
 	for(unsigned int s=1;s<blockDim.x;s*=2){
 	  int index = s*2*tid;
 	
-	//__syncthreads();
+	__syncthreads();
 	  if((index+s) < noOfThreads){
 	    sdata2[index] += sdata2[index+s];
 	  }
-	 __syncthreads();
+	// __syncthreads();
 	}
 	if(tid == 0) matchArray[blockIdx.x] = sdata2[0];
   }
@@ -160,15 +159,14 @@ int main(int argc, char *argv[])
     //printf("Number of threads:%d, Number of blocks:%d, Num Threads Per Block:%d, Num Bytes Per Thread:%d\n",numThreads,nBlocks,threadsPerBlock,numBytesPerThread);
     // Part 2 of 2. Call call checkMatchOnDevice kernel
     cudaEventRecord( start, 0 );
-    checkMatchOnDevice <<< nBlocks, threadsPerBlock >>> (deviceFileBuffer, deviceSearchBuffer, matchArray,numBytesPerThread,searchSize,matchStartArray,matchEndArray);
-    int newNBlocks=nBlocks,newNThreads;printf("\nNew Blocks:%d",nBlocks);
+    checkMatchOnDevice <<< nBlocks, threadsPerBlock , threadsPerBlock*sizeof(int)>>> (deviceFileBuffer, deviceSearchBuffer, matchArray,numBytesPerThread,searchSize,matchStartArray,matchEndArray);
+    int newNBlocks=nBlocks,newNThreads;//printf("\nNew Blocks:%d",nBlocks);
     cudaThreadSynchronize();
 	while(newNBlocks > 1){
 	newNThreads = newNBlocks;
 	newNBlocks = (newNBlocks/threadsPerBlock)+1;
     cumulateOnDevice <<< newNBlocks, threadsPerBlock ,threadsPerBlock * sizeof(int)>>> (matchArray,newNThreads,outArray);
 	}
-    //cudaMemcpy(matchArray, outArray, sizeof(int)*numThreads, cudaMemcpyDeviceToDevice);
     cudaEventRecord( stop, 0 ); 
     cudaEventSynchronize( stop ); 
     cudaEventElapsedTime( &time, start, stop ); 
@@ -183,7 +181,7 @@ int main(int argc, char *argv[])
     //for(i = 0; i < numThreads; i++)
     //{
 	//total += hostMatchArray[i];
-        //printf("%d)%d\n",i,hostMatchArray[i]);
+       //printf("%d)%d\n",i,hostMatchArray[i]);
     //}
 	total = hostMatchArray [0];
     //Overlap check, commented out for hw2  
