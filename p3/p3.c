@@ -7,9 +7,11 @@
 #define MAX_THREAD_NUM 500
 #define MAX_TEXTSIZE (1<<20)
 static pthread_barrier_t level_barr;
+static pthread_barrier_t main_barr;
 int noOfThreads;
-static pthread_mutex_t mutx = PTHREAD_MUTEX_INITIALIZER;
-static pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
+//static pthread_mutex_t mutx = PTHREAD_MUTEX_INITIALIZER;
+//static pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
+int sharedData[500];
 
 struct th_arg_s
 {
@@ -31,6 +33,7 @@ void myprintf(char *s, int i) {
 
 void __string_match(void* arg)
 {
+extern int sharedData[500];
 	struct th_arg_s *th_arg = (struct th_arg_s*)(arg);
 	int i;
 	int len = strlen(th_arg->str);
@@ -52,37 +55,31 @@ void __string_match(void* arg)
 	th_arg->count = count;
 	th_arg->first = first;
 	th_arg->last = last;
+unsigned int s;
+    sharedData[th_arg->thread_id] = count;
+
+    for(s=1; s < noOfThreads; s *= 2)
+   		 {
+
+   	 pthread_barrier_wait(&level_barr);
+     	if (th_arg->thread_id % (2*s) == 0 && (th_arg->thread_id + s) < noOfThreads)
+ 		     	{
+
+	         	sharedData[th_arg->thread_id] += sharedData[th_arg->thread_id + s];
+
+   		     	}
+
+   		 }
+//	if(th_arg->thread_id == 0)
+ //  		 {
+//   		    		 printf("Final Data = %d",sharedData[0]);
+ //  		 }
+	//pthread_barrier_wait(&main_barr);
 }
 
 void* string_match(void* arg)
 {
-	struct th_arg_s *th_argl = (struct th_arg_s*)(arg);
-	unsigned int s;
-	int noOfLevels = noOfThreads;
-	int oldThreads = noOfThreads;
-	__string_match(arg);
-	//myprintf("\nThread %d",th_argl->thread_id);
-	//myprintf("\twaiting on %d",noOfThreads);
-	pthread_barrier_wait(&level_barr);
-	//myprintf("\n1--------- %d",noOfThreads);
-	for(s=1;s<noOfThreads;s*=2){
-		int index = s*2*th_argl->thread_id;
-		/*if(th_argl->thread_id ==0){
-			noOfLevels = (noOfLevels+1)/2;
-			pthread_barrier_init(&level_barr,NULL,noOfLevels);
-		}*/
-		if((index+s) < noOfThreads)
-			th_argl->count += (th_argl+s)->count;
-		//myprintf("\nThread %d",th_argl->thread_id);
-		//myprintf("\twaiting on %d",noOfLevels);
-		pthread_barrier_wait(&level_barr);
-		//myprintf("\n2--------- %d",noOfThreads);
-	}
-	//if(th_argl->thread_id == 0)
-		//pthread_cond_signal(&cond);
-		
-//	pthread_barrier_wait(&level_barr);
-	pthread_exit(NULL);
+		__string_match(arg);
 }
 
 int main(int argc, char** argv)
@@ -112,7 +109,8 @@ int main(int argc, char** argv)
 		blocksize = (textsize / thread_num) + (textsize % thread_num ? 1:0);
 
 		pthread_barrier_init(&level_barr,NULL,thread_num);
-		//myprintf("\nCreating Threads %d",thread_num);
+		//pthread_barrier_init(&main_barr,NULL,(thread_num+1));
+	//	myprintf("\nCreating Threads %d",thread_num);
 		for ( i=0 ; i<thread_num ; i++ ) {
 			th_arg[i].buf = buf;
 			th_arg[i].str = argv[1];
@@ -126,21 +124,20 @@ int main(int argc, char** argv)
 
 			pthread_create(&(th[i]), NULL, string_match, &(th_arg[i]));
 		}
-
+	//	myprintf("\njoining",0);
 		for ( sum=0, i=0 ; i<thread_num ; i++ ) {
-		//	pthread_join(th[i], NULL);
-			if ( i>0 && th_arg[i].count > 0 && th_arg[i-1].last >= th_arg[i].first ) {
+			pthread_join(th[i], NULL);
+			/*if ( i>0 && th_arg[i].count > 0 && th_arg[i-1].last >= th_arg[i].first ) {
 				th_arg[i].start = th_arg[i-1].last + 1;
 				th_arg[i].count = 0;
 
 				__string_match((void*)(&(th_arg[i])));
-			}
+			}*/
 			//sum += th_arg[i].count;
 		}
-		//myprintf("Main going in wait%d",thread_num);
-		//pthread_cond_wait(&cond,&mutx);
-		//pthread_join(th[0],NULL);
-		sum= th_arg[0].count;
+		//myprintf("Main going in wait%d",thread_num+1);
+		//pthread_barrier_wait(&main_barr);
+		sum= sharedData[0];
 		gettimeofday(&q, NULL);
 		printf("blockSize: %8d numOfThread: %4d matchCount: %3d runningTime: %8ld\n", 
 				blocksize, thread_num, sum, q.tv_usec - p.tv_usec + (q.tv_sec-p.tv_sec)*1000000);
